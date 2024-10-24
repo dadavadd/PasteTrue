@@ -1,0 +1,6 @@
+@PasteTrue_HostAddress = http://localhost:5287
+
+GET {{PasteTrue_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
