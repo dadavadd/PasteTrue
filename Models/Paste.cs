@@ -16,6 +16,8 @@ namespace PasteTrue.Models
 
         public string? PasswordHash { get; set; }
 
+        public bool IsPublic { get; set; }
+
 
 
         public void SetPassword(string password)

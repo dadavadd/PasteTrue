@@ -15,6 +15,9 @@ namespace PasteTrue.DTOs.Paste
         [MinLength(1)]
         public string Title { get; set; }
 
+        [Required]
+        public bool IsPublic { get; set; }
+
         [MaxLength(100)]
         [MinLength(10)]
         public string? Password { get; set; }

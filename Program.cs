@@ -19,44 +19,42 @@ namespace PasteTrue
         {
             var builder = WebApplication.CreateBuilder(args);
 
+            ConfigureLogging(builder);
+            ConfigureServices(builder);
+            ConfigureAuthentication(builder);
+            ConfigureSwagger(builder);
+
+            var app = builder.Build();
+
+            if (app.Environment.IsDevelopment())
+            {
+                app.UseSwagger();
+                app.UseSwaggerUI();
+            }
+
+            app.UseHttpsRedirection();
+            app.UseAuthentication();
+            app.UseAuthorization();
+            app.MapControllers();
+            app.Run();
+        }
+
+        private static void ConfigureLogging(WebApplicationBuilder builder)
+        {
+            builder.Logging.ClearProviders();
+            builder.Logging.AddConsole();
+            builder.Logging.AddDebug();
+        }
+
+        private static void ConfigureServices(WebApplicationBuilder builder)
+        {
+            var connectionString = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, builder.Configuration["ConnectionString"]);
+
+            builder.Services.AddDbContext<ApplicationDbContext>(options =>
+                options.UseSqlite($"Data Source={connectionString}"));
+
             builder.Services.AddControllers();
             builder.Services.AddEndpointsApiExplorer();
-
-
-            builder.Services.AddSwaggerGen();
-            builder.Services.AddSwaggerGen(option =>
-            {
-                option.SwaggerDoc("v1", new OpenApiInfo { Title = "Demo API", Version = "v1" });
-                option.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
-                {
-                    In = ParameterLocation.Header,
-                    Description = "Please enter a valid token",
-                    Name = "Authorization",
-                    Type = SecuritySchemeType.Http,
-                    BearerFormat = "Jwt",
-                    Scheme = "Bearer"
-                });
-                option.AddSecurityRequirement(new OpenApiSecurityRequirement
-                {
-                    {
-                        new OpenApiSecurityScheme
-                        {
-                            Reference = new OpenApiReference
-                            {
-                                Type=ReferenceType.SecurityScheme,
-                                Id="Bearer"
-                            }
-                        },
-                        []
-                    }
-                });
-            });
-
-            var dbPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, builder.Configuration["ConnectionString"]);
-            builder.Services.AddDbContext<ApplicationDbContext>(options =>
-            {
-                options.UseSqlite($"Data Source={dbPath}");
-            });
 
             builder.Services.AddScoped<IPasteRepository, PasteRepository>();
             builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
@@ -69,6 +67,11 @@ namespace PasteTrue
                 options.Password.RequireNonAlphanumeric = true;
                 options.Password.RequiredLength = 12;
             }).AddEntityFrameworkStores<ApplicationDbContext>();
+        }
+
+        private static void ConfigureAuthentication(WebApplicationBuilder builder)
+        {
+            var jwtSettings = builder.Configuration.GetSection("Jwt");
 
             builder.Services.AddAuthentication(options =>
             {
@@ -83,31 +86,48 @@ namespace PasteTrue
                     ValidateAudience = true,
                     ValidateLifetime = true,
                     ValidateIssuerSigningKey = true,
-                    ValidIssuer = builder.Configuration["Jwt:Issuer"],
-                    ValidAudience = builder.Configuration["Jwt:Audience"],
-                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:SigningKey"]))
+                    ValidIssuer = jwtSettings["Issuer"],
+                    ValidAudience = jwtSettings["Audience"],
+                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings["SigningKey"]))
                 };
             });
+        }
 
-            var app = builder.Build();
-
-            if (app.Environment.IsDevelopment())
+        private static void ConfigureSwagger(WebApplicationBuilder builder)
+        {
+            builder.Services.AddSwaggerGen(options =>
             {
-                app.UseSwagger();
-                app.UseSwaggerUI();
-            }
+                options.SwaggerDoc("v1", new OpenApiInfo
+                {
+                    Title = "Demo API",
+                    Version = "v1"
+                });
 
-            
+                options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+                {
+                    In = ParameterLocation.Header,
+                    Description = "Please enter a valid token",
+                    Name = "Authorization",
+                    Type = SecuritySchemeType.Http,
+                    BearerFormat = "Jwt",
+                    Scheme = "Bearer"
+                });
 
-            app.UseHttpsRedirection();
-
-            app.UseAuthentication();
-            app.UseAuthorization();
-
-
-            app.MapControllers();
-
-            app.Run();
+                options.AddSecurityRequirement(new OpenApiSecurityRequirement
+                {
+                    {
+                        new OpenApiSecurityScheme
+                        {
+                            Reference = new OpenApiReference
+                            {
+                                Type = ReferenceType.SecurityScheme,
+                                Id = "Bearer"
+                            }
+                        },
+                        Array.Empty<string>()
+                    }
+                });
+            });
         }
     }
 }

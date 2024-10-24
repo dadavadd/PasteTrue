@@ -11,74 +11,99 @@ namespace PasteTrue.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class AuthController : ControllerBase
+    public class AuthController : ApiControllerBase
     {
         private readonly IJwtTokenService _tokenService;
         private readonly UserManager<User> _userManager;
         private readonly SignInManager<User> _signInManager;
+        private readonly ILogger<AuthController> _logger;
 
-        public AuthController(IJwtTokenService tokenService, UserManager<User> userManager, SignInManager<User> signInManager)
+        public AuthController(
+            IJwtTokenService tokenService,
+            UserManager<User> userManager,
+            SignInManager<User> signInManager,
+            ILogger<AuthController> logger)
         {
             _tokenService = tokenService;
             _userManager = userManager;
             _signInManager = signInManager;
+            _logger = logger;
         }
 
         [HttpPost("register")]
-        public async Task<IActionResult> Register([FromBody] RegisterDto registerDto)
+        public async Task<ActionResult<NewUserDto>> Register([FromBody] RegisterDto registerDto)
         {
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
-            var user = new User
+            try
             {
-                UserName = registerDto.UserName,
-                Email = registerDto.Email,
-            };
+                var user = new User
+                {
+                    UserName = registerDto.UserName,
+                    Email = registerDto.Email,
+                    CreatedAt = DateTime.UtcNow
+                };
 
-            var createdUser = await _userManager.CreateAsync(user, registerDto.Password);
+                var createdUser = await _userManager.CreateAsync(user, registerDto.Password);
+                if (!createdUser.Succeeded)
+                {
+                    return BadRequest(new { createdUser.Errors });
+                }
 
-            if (createdUser.Succeeded)
-            {
                 var roleResult = await _userManager.AddToRoleAsync(user, "User");
-                if (roleResult.Succeeded)
+                if (!roleResult.Succeeded)
                 {
-                    return Ok(new NewUserDto
-                    {
-                        UserName = user.UserName,
-                        Email = user.Email,
-                        Token = _tokenService.CreateToken(user)
-                    });
+                    await _userManager.DeleteAsync(user);
+                    return StatusCode(500, new { roleResult.Errors });
                 }
-                else
+
+                return Ok(new NewUserDto
                 {
-                    return StatusCode(500, roleResult.Errors);
-                }
+                    UserName = user.UserName,
+                    Email = user.Email,
+                    Token = _tokenService.CreateToken(user)
+                });
             }
-            else
+            catch (Exception ex)
             {
-                return StatusCode(500, createdUser.Errors);
+                _logger.LogError(ex, "Error registering user");
+                return StatusCode(500, "Error registering user");
             }
         }
 
         [HttpPost("login")]
-        public async Task<IActionResult> Login([FromBody] LoginDto loginDto)
+        public async Task<ActionResult<NewUserDto>> Login([FromBody] LoginDto loginDto)
         {
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
-            var user = await _userManager.Users.FirstOrDefaultAsync(t => t.UserName == loginDto.UserName);
-            if (user == null) return Unauthorized("Invalid username!");
-
-            var result = await _signInManager.CheckPasswordSignInAsync(user, loginDto.Password, false);
-            if (!result.Succeeded) return Unauthorized("Username not found and/or password incorrect");
-
-            return Ok(new NewUserDto
+            try
             {
-                UserName = user.UserName,
-                Email = user.Email,
-                Token = _tokenService.CreateToken(user)
-            });
+                var user = await _userManager.Users
+                    .FirstOrDefaultAsync(t => t.UserName == loginDto.UserName);
+
+                if (user == null)
+                    return Unauthorized(new { Message = "Invalid username or password" });
+
+                var result = await _signInManager
+                    .CheckPasswordSignInAsync(user, loginDto.Password, false);
+
+                if (!result.Succeeded)
+                    return Unauthorized(new { Message = "Invalid username or password" });
+
+                return Ok(new NewUserDto
+                {
+                    UserName = user.UserName,
+                    Email = user.Email,
+                    Token = _tokenService.CreateToken(user)
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error during login attempt");
+                return StatusCode(500, "Error during login attempt");
+            }
         }
     }
 }
