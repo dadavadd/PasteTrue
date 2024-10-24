@@ -40,6 +40,9 @@ namespace PasteTrue.Controllers
 
             string userId = User.FindFirstValue("id");
 
+            if (!createPasteDto.IsPublic && string.IsNullOrEmpty(userId))
+                return Unauthorized("You must be logged in to create private pastes.");
+
             var paste = new Paste
             {
                 Content = createPasteDto.Content,
@@ -49,12 +52,13 @@ namespace PasteTrue.Controllers
                 IsPublic = createPasteDto.IsPublic
             };
 
+            if (!string.IsNullOrEmpty(createPasteDto.Password))
+                paste.SetPassword(createPasteDto.Password);
+
             try
             {
-                if (!string.IsNullOrEmpty(createPasteDto.Password))
-                    paste.SetPassword(createPasteDto.Password);
-
                 var createdPaste = await _pasteRepo.CreatePaste(paste);
+
                 var responseDto = new PasteDto
                 {
                     Id = createdPaste.Id,
