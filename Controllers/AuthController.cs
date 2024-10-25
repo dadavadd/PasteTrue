@@ -6,6 +6,7 @@ using PasteTrue.Data;
 using PasteTrue.DTOs.User;
 using PasteTrue.Models;
 using PasteTrue.Services.Interfaces;
+using System.Security.Claims;
 
 namespace PasteTrue.Controllers
 {
