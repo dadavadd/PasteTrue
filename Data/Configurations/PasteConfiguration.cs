@@ -16,11 +16,6 @@ namespace PasteTrue.Data.Configurations
 
             builder.HasKey(e => e.Id);
 
-            builder.HasOne(d => d.User)
-                .WithMany(p => p.Pastes)
-                .HasForeignKey(d => d.UserId)
-                .OnDelete(DeleteBehavior.Cascade);
-
             builder.HasIndex(e => e.UserId);
             builder.HasIndex(e => e.CreatedAt);
             builder.HasIndex(e => e.ExpiresAt);
