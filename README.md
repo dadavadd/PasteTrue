@@ -7,6 +7,7 @@ PasteTrue is a secure text sharing service built with ASP.NET Core, featuring JW
 - 🔐 JWT Authentication
 - 👤 User Registration and Login
 - 📝 Create and manage text pastes
+- 🔐 Create private pastes
 - 🔒 Optional password protection for pastes
 - 🔍 Retrieve pastes by ID
 - 🗑️ Delete own pastes
